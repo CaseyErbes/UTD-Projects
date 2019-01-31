@@ -1,0 +1,163 @@
+---
+title: 'Homework 3: Logistic Regression'
+output: html_notebook
+---
+####Casey Erbes
+
+#####This rmd script is an exercise in applying and analyzing logistic regression in R.
+
+##1
+
+```{r}
+# setup in console:
+# install.packages('mlbench')
+library(mlbench)
+data(BreastCancer)
+str(BreastCancer)
+```
+
+```{r}
+head(BreastCancer)
+```
+
+```{r}
+summary(BreastCancer$Class)
+```
+
+```{r}
+paste("Percent in malignant class:", sum(BreastCancer$Class == "malignant")/nrow(BreastCancer) * 100, "%")
+paste("Percent in benign class:", sum(BreastCancer$Class == "benign")/nrow(BreastCancer) * 100, "%")
+```
+
+a. There are 699 instances.
+b. Class is the target column.
+c. For Class, there are 10 predictors. They are of the data types chr, ord, and fctr.
+d. 34.4778% of the observations are malignant.
+
+##2
+
+```{r}
+glm0 <- glm(Class~Cell.size+Cell.shape, data=BreastCancer)
+summary(glm0)
+```
+
+I am getting this error because I am trying to run a logarithmic regression model with factor variables. Converting these factor variables into booleans of some type and running glm with binomial=true may be a way to work around this.
+
+##3
+
+```{r}
+# a
+BreastCancer$Cell.small <- ifelse(BreastCancer$Cell.size == 1, 1, 0)
+BreastCancer$Cell.regular <- ifelse(BreastCancer$Cell.shape == 1, 1, 0)
+summary(BreastCancer$Cell.size)
+cat("\n") # for readability
+summary(BreastCancer$Cell.shape)
+cat("\n")
+summary(BreastCancer$Cell.small)
+cat("\n")
+summary(BreastCancer$Cell.regular)
+```
+
+I think making these new columns was a good idea, because they represent the essence of what the original factor variables represented, but in a way that is more easily computable for the purposes of building a logistic regression model. The new columns may lack the nuance that the original ordered factor variables possessed, however, but that is a small price to pay for attaining data that is easier to work with.
+
+##4
+
+```{r}
+attach(BreastCancer)
+par(mfrow=c(1,2))
+cdplot(Class~Cell.size)
+cdplot(Class~Cell.shape)
+detach(BreastCancer)
+```
+
+It appears that as cell size gets larger, the chances of of being malignant increases significantly. Likewise, it also appears that as cell shape becomes more abnormal, the chances of being malignant also increase significantly. From observing the charts, it appears that having a Cell size/shape of 2 does not necessarily indicate a significantly increased risk of malignancy, so I believe that using a cutoff of <= 2 for both cell size and cell shape would've been the better decision. Still, our cutoff of Cell size/shape == 1 is certainly justifiable from observing these graphs.
+
+##5
+
+```{r}
+attach(BreastCancer)
+par(mfrow=c(1,2))
+plot(Class~Cell.small)
+plot(Class~Cell.regular)
+
+# a
+paste("a. Percentage of small observations that are malignant:", sum(Class == "malignant" & Cell.small==1)/sum(Cell.small==1) * 100, "%")
+# b
+paste("b. Percentage of non-small observations that are malignant:", sum(Class == "malignant" & Cell.small==0)/sum(Cell.small==0) * 100, "%")
+# c
+paste("c. Percentage of regular observations that are malignant:", sum(Class == "malignant" & Cell.regular==1)/sum(Cell.regular==1) * 100, "%")
+# d
+paste("d. Percentage of non-regular observations that are malignant:", sum(Class == "malignant" & Cell.regular==0)/sum(Cell.regular==0) * 100, "%")
+
+detach(BreastCancer)
+```
+
+a. Percentage of small observations that are malignant: 1.041667%
+b. Percentage of non-small observations that are malignant: 75.238095%
+c. Percentage of regular observations that are malignant: 0.566572%
+d. Percentage of non-regular observations that are malignant: 69.0751445%
+
+Both small and regular appear to be quite strong predictors of malignancy, although they do not necessarily imply malignancy all on their own.
+
+##6
+
+```{r}
+# split into train and test sets
+set.seed(1234)
+sampleInt <- sample.int(n = nrow(BreastCancer), size = floor(.80*nrow(BreastCancer)))
+train <- BreastCancer[sampleInt, ]
+test  <- BreastCancer[-sampleInt, ]
+```
+
+##7
+
+```{r}
+glm1 <- glm(Class~Cell.small+Cell.regular, data=train, family=binomial)
+summary(glm1)
+```
+
+a. Both Cell.small and Cell.regular appear to be good predictors, as they have very small p-values.
+b. The null deviance is the measure of how well a model that includes only the intercept will predict the data. Residual deviance is the measure of how well the model performs when including our two parameters as independent variables. As the null deviance is 706 and the residual deviance is 259, we can conclude that our two parameters do reduce the deviance of our model fairly well, though there is more error than desired.
+c. The AIC score is 265.47. Taken alone, the AIC score is simply an indicator of the complexity of the model, but does not reveal much more than that. It is more useful for comparing two similar candidate models.
+
+##8
+
+```{r}
+# prediction values given assuming 0 is benign, 1 is malignant
+pred <- predict(glm1, newdata=test, type="response")
+pred
+actual <- ifelse(test$Class == "malignant", 1, 0)
+
+# percent error is found by calculating average difference in prediction from actual values,
+# then multiplying by 100 to give percent error. Percent accuracy is found by subtracting
+# percent error from 100.
+
+cat("\nPercent accuracy of the prediction is ", 100 - (sum(abs(pred - actual))/nrow(test))*100, "%")
+```
+
+##9
+
+```{r}
+glm1$coefficients['Cell.small']
+exp(glm1$coefficients['Cell.small'])
+sum(BreastCancer$Class == "malignant" & BreastCancer$Cell.small==1)/nrow(BreastCancer) * 100
+```
+
+a. The coefficient of small is -4.034.
+b. The coefficient is a large negative slope, which implies that chances of malignancy go down greatly if Cell.small is true.
+c. If Cell.small is true, then the estimated probability of malignancy is 0.0177
+d. The probability of malignancy if Cell.small is true over the BreastCancer data set is 0.5722, which is about 30 times larger than the estimated probability. This difference could possibly be explained by there being a higher incidence of malignancy with Cell.small = true in the test set than in the train set.
+
+##10
+
+```{r}
+glmSmall <- glm(Class~Cell.small, data=train, family=binomial)
+glmRegular <- glm(Class~Cell.regular, data=train, family=binomial)
+
+anova(glm1, glmSmall, glmRegular)
+summary(glm1)
+summary(glmSmall)
+summary(glmRegular)
+```
+
+Regarding the results of the anova(), glm1 appears to be the most accurate model of the data, with glmSmall being the second most accurate model, and glmRegular being the least accurate model of the three. The glm1 model also has the lowest AIC score, which means that it minimizes the potential for information loss the most. So, both the anova() and the AIC score suggest that glm1 is the most accurate model of the three.

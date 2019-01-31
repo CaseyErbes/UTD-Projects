@@ -1,0 +1,112 @@
+---
+title: 'Homework 4: Logistic Regression and kNN'
+output: html_notebook
+---
+####Casey Erbes
+
+#####This rmd script is an exercise in running logistic regression and applying the kNN algorithm in R.
+
+##1
+
+```{r}
+# setup in console:
+# install.packages('ISLR')
+#
+# a
+library(ISLR)
+# b
+medianMpg <- median(Auto$mpg)
+cat("Median value for mpg is:", medianMpg, "\n\n")
+# c
+Auto$mpglevel <- ifelse(Auto$mpg > medianMpg, 1, 0)
+cat("Is mpglevel a factor?", is.factor(Auto$mpglevel), "\n\n")
+Auto$mpglevel <- as.factor(Auto$mpglevel)
+cat("Is mpglevel a factor now?", is.factor(Auto$mpglevel), "\n\n")
+# d
+names(Auto)
+```
+
+##2
+
+```{r}
+attach(Auto)
+# a
+par(mfrow=c(2,2))
+# b
+# plot point is green if mpglevel is 1, red otherwise.
+plot(horsepower~mpg, col=ifelse(mpglevel==1,'green','red'))
+plot(weight~mpg, col=ifelse(mpglevel==1,'green','red'))
+# c
+plot(horsepower~mpglevel)
+plot(weight~mpglevel)
+detach(Auto)
+```
+
+##3
+
+```{r}
+# split into train and test sets
+set.seed(1234)
+sampleInt <- sample.int(n = nrow(Auto), size = floor(.75*nrow(Auto)))
+# exclude name and mpg in columns 1 and 9 respectively
+train <- Auto[sampleInt, c(-1, -9)]
+test  <- Auto[-sampleInt, c(-1, -9)]
+names(train)
+```
+
+##4
+
+```{r}
+# a
+glm1 <- glm(mpglevel~., data=train, family="binomial")
+# b
+probs1 <- predict(glm1, newdata=test, type="response")
+pred1 <- ifelse(probs1>=0.5, 1, 0)
+# c
+table(pred1, test$mpglevel)
+# d
+cat("\nMean accuracy is:", mean(pred1 == test$mpglevel))
+```
+
+##5
+
+```{r}
+# a
+library(class)
+pred2 <- knn(train=train[,-8], test=test[,-8], cl=train[,8], k=1)
+# b
+table(pred2, test$mpglevel)
+cat("\nMean accuracy is:", mean(pred2 == test$mpglevel))
+```
+
+##6
+
+```{r}
+# a
+scale_Auto <- scale(Auto[,c(-1,-9,-10)]) # omit name, mpg, and mpglevel columns
+scale_train <- scale_Auto[sampleInt, ]
+scale_test <- scale_Auto[-sampleInt, ]
+# b
+scale_train_labels <- Auto[sampleInt, 10]
+# c
+scale_test_labels <- Auto[-sampleInt, 10]
+# d
+pred3 <- knn(train=scale_train, test=scale_test, cl=scale_train_labels)
+# e
+table(pred3, scale_test_labels)
+cat("\nMean accuracy is:", mean(pred3==scale_test_labels))
+```
+
+##7
+
+a. The relationship between mpg and horsepower is negative and slightly nonlinear. The relationship between mpg and is also negative and slightly nonlinear.
+
+b. In the first two, the independent variable is a double, which could be a very wide range of different values; in the second two, the independent variable is a factor variable, which can only be one of two different values.
+
+c.The name variable is a qualitative value with no bearing on a vehicle's performance, so using it to predict mpglevel wouldn't make sense.
+
+d. We created the relationship between mpg and mpglevel ourselves, so it would be trivial to use mpg as one of the predictors of mpglevel.
+
+e. The mean accuracies of models 1 and 2 are each 0.8877551, and they had an exact equal amount of predictions in each column. Our third model, which uses a scaled test set, is more accurate, and has a mean accuracy of 0.9183673.
+
+f. A logistic regression model predicts the probabilities of outcomes, whereas a kNN with k=1 predicts just the outcomes by assigning the outcome from the closest point in the train set to a given test point.

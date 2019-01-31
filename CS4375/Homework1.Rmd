@@ -1,0 +1,139 @@
+---
+title: 'Homework 1: Data Exploration'
+output: html_notebook
+---
+
+#1
+
+The Boston data set contains 14 different variables describing various traits of the suburbs of Boston. These 14 variables are: crim, which is a town's per capita crime rate; zn, which is a town's proportion of residential land zoned for lots over 15,000 ft^2; induds, which is the proportion of non-retail business acres per town; chas, which is 1 if a town borders the river and 0 otherwise; nox, which is a town's nitrogen oxides concentration in parts per 10 million; rm, which is a town's average number of rooms per dwelling; age, which is a town's proportion of owner-occupied units built before 1940; dis, which is a town's weighted mean of distances to five Boston employment centres; rad, which is a town's index of accessibility to radial highways; ptratio, which is a town's pupil-teacher ratio; black, which is 1000(Bk - 0.63)^2 where Bk is the proportion of blacks by town; lstat, which is a town's percentage of lower status population; and medv, which is the median value of owner-occupied homes in $1000s.
+
+#2
+
+```{r}
+# setup calls (done in console)
+# library(MASS)
+# data(Boston)
+
+# first few rows
+head(Boston)
+# last 2 rows
+tail(Boston, 2)
+# display row 4
+Boston[4,]
+# first few rows of column 1
+head(Boston[,1])
+# display variable names
+names(Boston)
+```
+
+#3
+
+```{r}
+# mean
+mean(Boston[,"crim"])
+# median
+median(Boston[,"crim"])
+# range
+range(Boston[,"crim"])
+```
+
+#4
+
+```{r}
+hist(Boston$crim,
+     main="Histogram of Per Capita Crime Rate in Boston Suburbs",
+     xlab="Crime Rate Per Capita")
+```
+
+This histogram tells us that for most Boston suburbs, the crime rate per capita is relatively low, though there are a rare number of outliers.
+
+#5
+
+```{r}
+cor(Boston$crim, Boston$medv)
+```
+
+The correlation coefficient is -0.3883, which means that if a town's crime rate is higher, then the median home value will be lower. However, the value of the correlation coefficient is not very far from 0, so crime rate should not be considered a very strong predictor of a town's median home value, although the two are correlated to a fair degree.
+
+#6
+
+```{r}
+# plot rm vs medv
+plot(Boston$rm, Boston$medv,
+     main="Average Number of Rooms vs. Median Value for Boston Homes",
+     xlab="Average Number of Rooms Per Home",
+     ylab="Median Home Value",
+     pch="o",
+     col="#FA8072")
+# find Pearson correlation coeff
+cor(Boston$rm, Boston$medv)
+```
+
+The correlation coefficient between the average number of rooms per home and the median home value of a town is 0.695, which indicates a strong correlation between the two; the graph also shows a set of data points that indicate a positive linear relationship between the two variables, although the plot also demonstrates that a fair number of outliers do exist.
+
+#7
+
+```{r}
+# determine if chas is a factor
+is.factor(Boston$chas)
+# plot chas vs medv
+plot(Boston$chas, Boston$medv,
+     main="Bordering River vs. Median Value for Boston Homes",
+     xlab="Is Near River",
+     ylab="Median Home Value",
+     pch="o",
+     col="#4169E1")
+# make chas a factor
+Boston$chas <- as.factor(Boston$chas)
+# plot chas vs medv again, with chas as a factor this time
+plot(Boston$chas, Boston$medv,
+     main="Bordering River vs. Median Value for Boston Homes",
+     xlab="Is Near River",
+     ylab="Median Home Value")
+```
+
+The first graph simply shows each individual data point, whereas the second graph shows a box-and-whisker graph that indicates where the average, 25th percentile, and 75th percentile median home values are, based on whether or not a town is bordering the Charles River. The chas value is 0 if a town is not near a river and 1 if a town is near a river.
+
+#8
+
+```{r}
+# using summary on rad
+summary(Boston$rad)
+# using unique on rad
+unique(Boston$rad)
+# using sum on rad
+sum(Boston$rad == 24)
+# determine what percent of the neighborhoods have rad==24
+sum(Boston$rad == 24)/sum(Boston$rad >= 0) * 100
+```
+
+The rad variable is an index of accessibility to radial highways. The higher a town's rad variable is, the further it probably is from the city center. The summary function returned the min, max, median, mean, 1st quartile value, and 3rd quartile value of the rad variable. The unique function tells us that there are only 9 different unique values in the rad column of the Boston data set: 1, 2, 3, 4, 5, 6, 7, 8, and 24. Using R code, I found that 26.087% of the Boston neighborhoods have a rad of 24.
+
+#9
+
+```{r}
+# create and populate new variable far
+Boston$far <- ifelse(Boston$rad == 24, TRUE, FALSE)
+# make far a factor
+Boston$far <- as.factor(Boston$far)
+# plot far vs medv, with chas as a factor this time
+plot(Boston$far, Boston$medv,
+     main="City Accessibility vs. Median Value for Boston Homes",
+     xlab="Far from the City",
+     ylab="Median Home Value")
+```
+
+The graph tells us that on average, towns closer to the city center will have a higher median home value, and that many of the towns with the highest median home values are not far from the city, which is to be expected.
+
+#10
+
+```{r}
+# create summary of Boston for crim, rm, lstat, and medv
+summary(Boston[c("crim", "rm", "lstat", "medv")])
+# find row in Boston dataset with highest medv
+which.max(Boston$medv)
+# display row in Boston dataset with highest medv
+Boston[which.max(Boston$medv),c(1,6,13,14)]
+```
+
+There are multiple neighborhoods with the max medv of 50, but for simplicity we will focus on only comparing the neighborhood returned by which.max() with the rest of Boston. In terms of crime rate, the neighborhood with the max medv was surprisingly higher than the median, but was lower than the mean for Boston neighborhoods. This fits with the negative correlation between crim and medv observed earlier. The neighborhood with 50 medv had an rm of 7.489, which was close to the max for Boston neighborhoods. This also fits with the positive correlation observed earlier between rm and medv. The lstat variable for our 50 medv neighborhood was 1.73, the min for Boston neighborhoods; again, it makes sense that upper-status people would live in an affluent neighborhood. Finally, our neighborhood had a medv of 50, which is a max value for Boston neighborhoods.

@@ -1,0 +1,221 @@
+---
+title: 'Homework 6: Decision Trees'
+output: html_notebook
+---
+####Casey Erbes
+
+#####This rmd script is an exercise in designing and testing decision trees in R.
+
+##Problem 1
+
+###Step 1
+
+```{r}
+# setup in console:
+# install.packages('ISLR')
+# install.packages('tree')
+
+# a
+library(ISLR)
+library(tree)
+attach(Default)
+
+# b
+dim(Default)
+names(Default)
+
+# c
+set.seed(2017)
+
+# d
+# split into train and test sets
+i <- sample(1:nrow(Default), nrow(Default)*0.8, replace=FALSE)
+train1 <- Default[i, ]
+test1  <- Default[-i, ]
+detach(Default)
+```
+
+###Step 2
+
+```{r}
+# a
+glm1 <- glm(default~., data=train1, family="binomial")
+
+# b
+summary(glm1)
+
+# c
+probs1 <- predict(glm1, newdata=test1, type="response")
+pred1 <- ifelse(probs1>=0.5, "Yes", "No")
+
+# d
+cat("\nMean accuracy is:", mean(pred1 == test1$default))
+```
+
+###Step 3
+
+```{r}
+# a
+tree1 = tree(default~., train1)
+
+# b
+summary(tree1)
+
+# c
+pred2 <- predict(tree1, test1, type="class")
+
+# d
+cat("\nMean accuracy is:", mean(pred2 == test1$default))
+```
+
+###Step 4
+
+```{r}
+# a
+# print the tree with labels
+plot(tree1)
+text(tree1, cex=0.5, pretty=0)
+
+# b
+# display the tree in nested decision form
+tree1
+```
+
+##Problem 2
+
+###Step 1
+
+```{r}
+# a
+# Heart.csv should be downloaded and placed in the same directory as this rmd file.
+
+# b
+Heart <- read.csv("Heart.csv")
+
+# c
+Heart <- subset(Heart, select=-c(X))
+
+# d
+set.seed(2017)
+# split into train and test sets
+i <- sample(1:nrow(Heart), nrow(Heart)*0.8, replace=FALSE)
+train2 <- Heart[i, ]
+test2  <- Heart[-i, ]
+```
+
+###Step 2
+
+```{r}
+# a
+glm2 <- glm(AHD~., data=train2, family="binomial")
+
+# b
+summary(glm2)
+
+# c
+probs3 <- predict(glm2, newdata=test2, type="response")
+pred3 <- ifelse(probs3>=0.5, "Yes", "No")
+
+# d
+cat("\nMean accuracy is:", mean(pred3 == test2$AHD, na.rm=TRUE))
+```
+
+###Step 3
+
+```{r}
+# a
+tree2 = tree(AHD~., train2)
+
+# b
+summary(tree2)
+
+# c
+pred4 <- predict(tree2, test2, type="class")
+
+# d
+cat("\nMean accuracy is:", mean(pred4 == test2$AHD))
+```
+
+###Step 4
+
+```{r}
+# a
+# print the tree with labels
+plot(tree2)
+text(tree2, cex=0.5, pretty=0)
+
+# b
+# display the tree in nested decision form
+tree2
+```
+
+###Step 5
+
+```{r}
+# a
+# the output for this function is not consistent
+# so I will just take the size that results in the lowest dev from this particular run. 
+tree2cv = cv.tree(tree2, FUN=prune.misclass)
+
+# b
+tree2cv
+
+# c
+par(mfrow=c(1,2))
+# i
+plot(tree2cv$size, tree2cv$dev, type="b")
+# ii
+plot(tree2cv$k, tree2cv$dev, type="b")
+```
+
+###Step 6
+
+```{r}
+# a
+tree2prune = prune.misclass(tree2, best=4)
+
+# b
+plot(tree2prune)
+text(tree2prune, pretty=0)
+```
+
+###Step 7
+
+```{r}
+# a
+pred5 <- predict(tree2prune, test2, type="class")
+
+# b
+cat("\nMean accuracy is:", mean(pred5 == test2$AHD))
+```
+
+##Questions
+
+###Problem 1 Questions
+
+1. For the logistic model, balance appeared to be the most important variable, as it had a p-value <2e-16. studentYes had a p-value of 0.0397, which indicates it might be slightly significant. The income variable had a large p-value, so it is safe to say that it is not very important at all when trying to predict defaulting.
+
+2. The logistic regression model and the decision tree model both had an accuracy of 0.971, which is an exceptionally high accuracy for a model to attain.
+
+3. Because for both sub-branches, the "default" variable will be "No" whether or not the balance is greater or less than the value being tested for at the branch.
+
+4. 
+if(balance<1890.64) {
+  "Yes"
+} else {
+  "No"
+}
+
+5. Yes, because it has some unnecessary branches that convolute the decision process the tree is actually using.
+
+###Problem 2 Questions
+
+1. "Sex", "ChestPainnonanginal", "ChestPaintypical", and "Ca" are the important variables for the logistic regression model.
+
+2. The variables used to create the decision tree were: "ChestPain", "Thal", Age", "MaxHR", "Sex", "RestBP", "Chol", "Ca", and "Oldpeak".
+
+3. The logistic regression model had an accuracy of 0.8813559, whereas the decision tree model had a lower accuracy of 0.8360656.
+
+4. The pruned tree had an improved accuracy of 0.8688525.
+
+5. The pruned tree might be the most meaningful model to a doctor, because it indicates a small group of key variable thresholds that are strong predictors for AHD. The other two models take too many variables into account to be immediately useful for a doctor to use.

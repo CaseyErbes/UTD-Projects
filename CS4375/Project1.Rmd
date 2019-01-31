@@ -1,0 +1,285 @@
+---
+title: 'Project 1: Pitchfork Reviews and Mushroom Classification'
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+#####Casey Erbes
+
+##Dataset 1
+###Pitchfork reviews from January 5, 1999 to January 8, 2017
+
+Pitchfork is a music publication that reviews music and assigns a score that represents how good they think an album is. We will analyze a data set of all of their reviews from Jan 5, 1999 to Jan 8 2017 and see what trends pop up. Link to the data: https://www.kaggle.com/nolanbconaway/pitchfork-data/data
+
+####Data Exploration
+
+```{r}
+pitchfork <- read.csv("pitchfork.csv")
+names(pitchfork)
+pitchfork <- pitchfork[,c(-14)]
+cat("\n") # for spacing output
+names(pitchfork)
+```
+
+The pitchfork review data was fetched from Kaggle as an sqlite file. I used a SELECT * SQL function with a table join in order to output the data to a csv file, but unfortunately, the reviewid column was duplicated. The code above demonstrates the removal of the duplicate column. Now the data is free of duplicates and ready to be analyzed.
+
+An explanation of the columns: 
+"reviewid" is a unique ID for each review.
+<br/>
+"title" is the name of the album being reviewed.
+<br/>
+"artist" is the name of the artist being reviewed.
+<br/>
+"url" is a the uniform resource locator of the review.
+<br/>
+"score" is the score assigned by the review to the album. This will be our target column in our analyses.
+<br/>
+"best_new_music" is a boolean representing whether Pitchfork categorized the album as "Best New Music" or not.
+<br/>
+"author" is the name of the author of the review.
+<br/>
+"author_type" is the position of the author who wrote the review.
+<br/>
+"pub_date" is the date that the review was published.
+<br/>
+"pub_weekday" is a number representing the weekday that the review was published, where 0 is Sunday and 6 is Saturday.
+<br/>
+"pub_day" is the day of the month that the review was published.
+<br/>
+"pub_month" is the number of the month during which the review was published.
+<br/>
+"pub_year" is the year that the review was published.
+<br/>
+"genre" is the genre of music that the reviewed album is classified under. This may be an empty string in cases where it is difficult to determine genre.
+<br/>
+
+```{r}
+cor(pitchfork$score, pitchfork$pub_year)
+```
+
+This indicates that there may be a slight increase in the average review score in recent years, but the correlation is very small.
+
+```{r}
+str(pitchfork)
+pitchfork$title <- as.character(pitchfork$title)
+pitchfork$artist <- as.character(pitchfork$artist)
+pitchfork$url <- as.character(pitchfork$url)
+pitchfork$author <- as.character(pitchfork$author)
+pitchfork$best_new_music <- as.factor(pitchfork$best_new_music)
+pitchfork$pub_year <- as.factor(pitchfork$pub_year)
+pitchfork$pub_month <- as.factor(pitchfork$pub_month)
+cat("\n")
+str(pitchfork)
+```
+
+Title, artist, url, and author have too many levels to be effective factors, so we should convert them into character variables. On the other hand, best_new_music appears to be a binary integer, so it should be converted to a factor. The variable pub_year ranges from the year 1999 to 2017, so it may be helpful to convert it into a factor with 19 different levels. The variable pub_month can also be represented as a factor with 12 different levels in order to allow better data analysis.
+<br/>
+Also note this dataset has 22,960 rows.
+
+```{r}
+summary(pitchfork)
+```
+
+```{r}
+head(pitchfork)
+```
+
+```{r}
+levels(pitchfork$genre)
+```
+
+This is a list of which factor numbers match up with each genre of music reviewed, which will help the reader recognize each of the genres being referenced on the x-axis in the graph below.
+
+```{r}
+attach(pitchfork)
+plot(score~genre, main="Music Genre vs Review Score")
+detach(pitchfork)
+```
+
+As expected, some genres get more love from Pitchfork than others, but each genre averages a review score in between 7-8.
+
+```{r}
+levels(pitchfork$author_type)
+```
+
+This is a list of which factor numbers match up with each type of Pitchfork author, which will help the reader recognize each of the author_types being referenced on the x-axis in the graph below.
+
+```{r}
+attach(pitchfork)
+plot(score~author_type, main="Author Position vs Review Score", xlab="Author Position")
+detach(pitchfork)
+```
+
+Unsurprisingly, the "senior staff writers" seem to be among the most negative reviewers of all of the Pitchfork author types. On the other hand, "associated reviews editors" appear to have the most positive reviews on average. Unclassified-type authors and "contributors" appear to write the bulk of the reviews published by Pitchfork.
+
+```{r}
+attach(pitchfork)
+plot(score~pub_year, main="Publication Year vs Review Score", xlab="Year")
+detach(pitchfork)
+```
+
+Interestingly, there appear to be fewer and fewer overly negative reviews as time goes on. However, the average review score more or less remains constant as the years go by. Also, starting from 2012 on, the scores appear to vary to a lesser degree than in the past.
+
+####Machine Learning Algorithms
+
+```{r}
+lm1 <- lm(score~genre, data=pitchfork)
+summary(lm1)
+```
+
+It has often been argued that Pitchfork favors certain genres of music over others, so using genre as a predictor is the best way to test whether that hypothesis bears any truth. As it turns out, Pitchfork's scores are very neutral in general, and their reviews seem to gravitate towards a score of 7 regardless of the genre of music being reviewed. Thus, genre type might be an accurate predictor of review score, but only because the intercept already predicts the review score well already, and the differences in score between genres is near negligible.
+
+```{r}
+lm2 <- lm(score~pub_month, data=pitchfork)
+summary(lm2)
+```
+
+It has long been thought that the best music is released near the end of the year. In order to test that hypothesis, we will try to use the month of publication as a predictor of review score. The resulting model certainly shows that the reviews at the end of the year do indeed have higher scores in general, but using the publication month as a predictor of individual scores is not particularly acccurate.
+
+```{r}
+anova(lm1, lm2)
+```
+
+Out of both of these regression models, the first has the smaller residual error and a smaller p-value, so it would be safe to say that it is the more accurate of the two models.
+
+##Dataset 2
+###Mushroom Classification
+
+Foraging for mushrooms in the wild is fun and tasty hobby, but one should take note that not all mushrooms are safe to eat. This dataset is concerned with the classification of mushrooms into "poisonous" and "edible" classes. Link to the data: https://www.kaggle.com/uciml/mushroom-classification/data
+
+####Data Exploration
+
+```{r}
+mushrooms <- read.csv("mushrooms.csv")
+names(mushrooms)
+```
+
+An explanation of the columns:
+<br/>
+"class": p=poisonous, e=edible.
+<br/>
+"cap-shape": b=bell, c=conical, x=convex, f=flat, k=knobbed, s=sunken.
+<br/>
+"cap-surface": f=fibrous, g=grooves, y=scaly, s=smooth.
+<br/>
+"cap-color": n=brown, b=buff, c=cinnamon, g=gray, r=green, p=pink, u=purple, e=red, w=white, y=yellow.
+<br/>
+"bruises": t=bruises, f=no bruises.
+<br/>
+"odor": a=almond, l=anise, c=creosote, y=fishy, f=foul, m=musty, n=none, p=pungent, s=spicy.
+<br/>
+"gill-attachment": a=attached, d=descending, f=free, n=notched.
+<br/>
+"gill-spacing": c=close, w=crowded, d=distant.
+<br/>
+"gill-size": b=broad, n=narrow.
+<br/>
+"gill-color": k=black, n=brown, b=buff, h=chocolate, g=gray, r=green, o=orange, p=pink, u=purple, e=red, w=white, y=yellow.
+<br/>
+"stalk-shape": e=enlarging, t=tapering.
+<br/>
+"stalk-root": b=bulbous, c=club, u=cup, e=equal, z=rhizomorphs, r=rooted, ?=missing.
+<br/>
+"stalk-surface-above-ring": f=fibrous, y=scaly, k=silky, s=smooth.
+<br/>
+"stalk-surface-below-ring": f=fibrous, y=scaly, k=silky, s=smooth.
+<br/>
+"stalk-color-above-ring": n=brown, b=buff, c=cinnamon, g=gray, o=orange, p=pink, e=red, w=white, y=yellow.
+<br/>
+"stalk-color-below-ring": n=brown, b=buff, c=cinnamon, g=gray, o=orange, p=pink, e=red, w=white, y=yellow.
+<br/>
+"veil-type": p=partial, u=universal.
+<br/>
+"veil-color": n=brown, o=orange, w=white, y=yellow.
+<br/>
+"ring-number": n=none, o=one, t=two.
+<br/>
+"ring-type": c=cobwebby, e=evanescent, f=flaring, l=large, n=none, p=pendant, s=sheathing, z=zone.
+<br/>
+"spore-print-color": k=black, n=brown, b=buff, h=chocolate, r=green, o=orange, u=purple, w=white, y=yellow.
+<br/>
+"population": a=abundant, c=clustered, n=numerous, s=scattered, v=several, y=solitary.
+<br/>
+"habitat": g=grasses, l=leaves, m=meadows, p=paths, u=urban, w=waste, d=woods.
+<br/>
+
+```{r}
+str(mushrooms)
+```
+
+As you can see, this is a dataset built for classification, as it is comprised solely of factor variables.
+<br/>
+Note that this dataset contains 8124 rows.
+
+```{r}
+summary(mushrooms)
+```
+
+Note that there is a near-even number of edible and poisonous mushrooms, which means that it will be easy to tell whether a particular predictor is effective or not.
+
+```{r}
+head(mushrooms)
+```
+
+```{r}
+poisonous <- ifelse(mushrooms$class == "p", 1, 0)
+noOdor <- ifelse(mushrooms$odor == "n", 1, 0)
+foulOdor <- ifelse(mushrooms$odor == "f", 1, 0)
+cat("Coefficient of correlation between foul odor and being poisonous: ", cor(foulOdor, poisonous))
+cat("\n\nCoefficient of correlation between no odor and being poisonous: ", cor(noOdor, poisonous))
+```
+
+As expected, if a mushroom has a foul odor, it is more likely that it will be poisonous, and if a mushroom has no odor, it is less likely that it will be poisonous.
+
+```{r}
+levels(mushrooms$odor)
+```
+
+This is a list of which factor numbers match up with each odor classification of mushroom, which will help the reader recognize each of the odors being referenced on x-axis the graph below.
+
+```{r}
+attach(mushrooms)
+cdplot(odor, class, main="Mushroom Odor vs Edibility")
+detach(mushrooms)
+```
+
+According to the above graph, a high percentage of mushrooms with anlmond, anise, or no odors are edible, while a high percentage of mushrooms with foul, creosote, fishy, pungent, or spicy odors are poisonous. Mushrooms with a musty odor are more likely poisonous than edible, but it is not a strong predictor either way.
+
+```{r}
+levels(mushrooms$gill.color)
+```
+
+This is a list of which factor numbers match up with each habitat classification of mushroom, which will help the reader recognize each of the habitats being referenced on x-axis the graph below.
+
+```{r}
+attach(mushrooms)
+cdplot(gill.color, class, main="Mushroom Gill Color vs Edibility")
+detach(mushrooms)
+```
+
+According to the above graph, mushrooms with buff-colored gills are extremely likely to be poisonous. Mushrooms with red, gray, and chocolate-colored gills are most likely poisonous, though there do exist mushrooms with these gill colors that are safe to eat. Mushrooms with black, brown, green, orange, pink, purple, white, and yellow gill colors are probably edible, although there are examples of mushrooms of each gill color which are poisonous.
+
+####Machine Learning Algorithms
+
+When classifying mushrooms, edibility is the main concern, so it will be the target column for both of our models.
+
+```{r}
+glm1 <- glm(class~odor, data=mushrooms, family="binomial")
+summary(glm1)
+```
+
+Using odor as a predictor of mushroom edibility reduced the null deviance of 11251.8 to a residual deviance of 1047.3, which is 1/10 the size, which inicates that odor is indeed a highly effective predictor of whether or not a mushroom is poisonous.
+
+```{r}
+glm2 <- glm(class~gill.color, data=mushrooms, family="binomial")
+summary(glm2)
+```
+
+Using gill color as a predictor of mushroom edibility reduced the null deviance of 11251.8 to a residual deviance of 6555.7, which is a bit more than 1/2 the size, which inicates that gill color is not a great predictor of whether or not a mushroom is edible or not, but it still is helpful to some degree.
+
+```{r}
+anova(glm1, glm2)
+```
+
+The first model has much less residual error than the first model, which indicates that it is more accurate. It also has a much lower AIC score, which means that it has a much smaller potential for information loss than the second model. Thus, the first model outperforms the second to a high degree.

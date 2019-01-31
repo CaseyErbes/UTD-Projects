@@ -1,0 +1,113 @@
+---
+title: 'Homework 5: Naïve Bayes and SVM'
+output: html_notebook
+---
+####Casey Erbes
+
+#####This rmd script is an exercise in building Naïve Bayes and SVM models in R.
+
+##1
+
+```{r}
+# setup in console:
+# install.packages('ISLR')
+# install.packages('e1071')
+
+library(ISLR)
+medianMpg <- median(Auto$mpg)
+Auto$mpglevel <- ifelse(Auto$mpg > medianMpg, 1, 0)
+Auto$mpglevel <- as.factor(Auto$mpglevel)
+
+# split into train and test sets
+set.seed(1234)
+i <- sample(1:nrow(Auto), nrow(Auto)*0.75, replace=FALSE)
+# exclude name and mpg in columns 1 and 9 respectively
+train <- Auto[i, c(-1, -9)]
+test  <- Auto[-i, c(-1, -9)]
+names(train)
+```
+
+Auto\$mpglevel column is created, data set is divided 75/25 into train and test sets, excluding Auto\$name and Auto\$mpg columns. The names of the columns in the train dataset are printed out to verify this.
+
+##2
+
+```{r}
+# a
+library(e1071)
+nb1 <- naiveBayes(mpglevel~., data=train)
+nb1
+# b
+p1 <- predict(nb1, newdata=test[,-8], type="class")
+# c
+table(p1, test$mpglevel)
+# d
+mean(p1==test$mpglevel)
+```
+
+With a Naïve Bayes model, the mean accuracy is 0.9285714, which is pretty good.
+
+##3
+
+```{r}
+# a
+set.seed(1) # seed to achieve consistent results
+tune.out = tune(svm, mpglevel~., data=train, kernel="linear", ranges=list(cost=c(0.001, 0.01, 0.1, 1, 5, 10, 100)))
+summary(tune.out)
+# b
+svm1 = tune.out$best.model
+svm1
+# c
+p2 <- predict(svm1, newdata=test[,-8], type="class")
+# d
+table(p2, test$mpglevel)
+# e
+mean(p2==test$mpglevel)
+```
+
+With set.seed(1), the best parameters is cost=1, which results in an error=0.0816092, dispersion=0.02820715. The mean accuracy is 0.9183673.
+
+##4
+
+```{r}
+# a
+set.seed(1) # seed to achieve consistent results
+tune.out = tune(svm, mpglevel~., data=train, kernel="polynomial", ranges=list(cost=c(0.001, 0.01, 0.1, 1, 5, 10, 100), gamma=c(0.5,1,2,3,4)))
+summary(tune.out)
+# b
+svm2 = tune.out$best.model
+svm2
+# c
+p3 <- predict(svm2, newdata=test[,-8], type="class")
+# d
+table(p3, test$mpglevel)
+# e
+mean(p3==test$mpglevel)
+```
+
+With set.seed(1), the best parameters are cost=0.001, gamma=3, which results in an error=0.08816092, dispersion=0.02771919. The mean accuracy is 0.9183673, which is similar to the linear-kernel SVM.
+
+##5
+
+```{r}
+# a
+set.seed(1) # seed to achieve consistent results
+tune.out = tune(svm, mpglevel~., data=train, kernel="radial", ranges=list(cost=c(0.001, 0.01, 0.1, 1, 5, 10, 100), gamma=c(0.5,1,2,3,4)))
+summary(tune.out)
+# b
+svm3 = tune.out$best.model
+svm3
+# c
+p4 <- predict(svm3, newdata=test[,-8], type="class")
+# d
+table(p4, test$mpglevel)
+# e
+mean(p4==test$mpglevel)
+```
+
+With set.seed(1), the best parameters are cost=1, gamma=1, which results in an error=0.06793103, dispersion=0.04231401. The mean accuracy is 0.9489796, which is better than the other models' mean accuracy levels.
+
+##6
+
+a. For all 4 models, the mean accuracy attained was > 0.90, which suggests that they are all accurate to a high degree. For the Naïve Bayes model, the mean accuracy was 0.92857. For the linear-kernel SVM and the polynomial-kernel SVM, the mean accuracy for each was 0.9183673, slightly lower than the Naïve Bayes model. For the radial-kernel SVM, the mean accuracy was 0.948979, higher than the mean accuracies from any of the other 4 models.
+
+b. A Naïve Bayes makes the assumption that its predictors are independent, whereas SVM considers the interactions between predictors. Naïve Bayes is a generative model, and it works better on smaller datasets, whereas SVM is a discriminative model, and it works better on larger datasets. Both approaches require parameter tuning to achieve the most accurate results, but in general, dataset size will determine which approach is the best one to use.

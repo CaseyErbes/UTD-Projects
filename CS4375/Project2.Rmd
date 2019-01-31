@@ -1,0 +1,371 @@
+---
+title: 'Project 2: Wine Reviews and Movies'
+output: html_notebook
+---
+#####Casey Erbes
+
+##Regression Algorithms
+
+###Dataset 1: 130,000 wine reviews from Wine Enthusiast Magazine
+
+Wine Enthusiast Magazine provides consumers information on the world of wine and spirits, reviewing hundreds of wines each month. The magazine assigns an amount of points from 1-100 to each wine reviewed. The wine's awarded points will be our target column. Other variables, such as a wine's price or its country/region of origin, may be our predictors.
+
+Link to the data: https://www.kaggle.com/zynicide/wine-reviews
+
+####Data Exploration
+
+```{r}
+wines <- read.csv("wines.csv")
+```
+
+```{r}
+wines <- subset(wines, select=-c(X))
+wines <- na.omit(wines)
+```
+
+The wine review data was fetched from Kaggle as a CSV file. It is over 50 MB, so loading the data into R will take a fair amount of time. The column 'X' is simply an index column, so it is removed from the dataset. For simplicity, rows with N/A values have been removed from the dataset as well.
+
+```{r}
+names(wines)
+```
+
+An explanation of the columns: 
+"country" is a wine's country of origin.
+<br/>
+"description" is the tasting notes for the wine being reviewed. This may be a long string.
+<br/>
+"designation" is the name given to the wine by the winery producing it. This may not be listed in some rows.
+<br/>
+"points" is a the review score a wine has earned. This can range from 1-100.
+<br/>
+"price" is the dollar price of the wine being reviewed. This may not be listed in some rows.
+<br/>
+"province" is the state or province in which a wine has been produced.
+<br/>
+"region_1" is the general region in which a wine has been produced. This may not be listed in some rows.
+<br/>
+"region_2" is a more specfic region in which a wine has been produced. This is not listed in many rows.
+<br/>
+"taster_name" is the name of the wine reviewer.
+<br/>
+"taster_twitter_handle" is the twitter handle of the wine reviewer. It may not be listed in some rows.
+<br/>
+"title" is the full title of the wine being reviewed.
+<br/>
+"variety" is the variety of grape used to produce the wine being reviewed.
+<br/>
+"winery" is the name of the winery that produced the wine being reviewed.
+<br/>
+
+
+```{r}
+wines$description <- as.character(wines$description)
+wines$designation <- as.character(wines$designation)
+wines$title <- as.character(wines$title)
+str(wines)
+```
+
+Since description, designation, and title are all properties that are more or less unique to a particular wine, they shall be treated as independent character strings, rather than factors.
+
+Note that after cleaning, this dataset has 120,975 observations.
+
+```{r}
+head(wines)
+```
+
+```{r}
+summary(wines)
+```
+
+Note that the minimum score a wine has received is 80 and the maximum is 100, so one point represents a significant difference in perceived wine quality.
+
+```{r}
+wines <- wines[wines$variety=='Chardonnay',]
+summary(wines)
+```
+
+There are almost 70,000 different wine varieties listed. It wouldn't necessarily be fair to compare the score of one variety to the score of another.
+
+In the interest of simplicity and fairness, we will consider only Chardonnay varieties. This includes types of wine such as Champagne, Chablis, and white Burgundy. After removing all other varieties of wine, there are 11,080 Chardonnay wines left to contemplate.
+
+```{r}
+cor(wines$points, wines$price)
+```
+
+The correlation coefficient of 0.429 indicates that a Chardonnay wine's review score and its price are correlated fairly strongly, which agrees with our intuition.
+
+####Machine Learning Algorithms
+
+```{r}
+set.seed(1111)
+i <- sample(1:nrow(wines), nrow(wines)*0.8, replace=FALSE)
+train1 <- wines[i, ]
+test1 <- wines[-i, ]
+```
+
+The data must first be split into train and test sets. I am using an 80:20 split.
+
+Going forward, I will seed everything with 1111 to achieve repeatable results.
+
+Price is an obvious choice to use as a predictor for a wine's score, but there are other factors to consider.
+
+It is widely thought that the natural environment, or terroir, of a grape heavily influences how the resulting wine will taste. Chardonnay in particular is known to prefer a terroir containing  chalk and limestone. We will construct one model that use the Chardonnay's place of origin as a predictor, and compare how well it performs against a model that uses only price as a predictor.
+
+#####Linear Regression
+
+```{r}
+lm1 <- lm(points~price, data=train1)
+summary(lm1)
+```
+
+```{r}
+pred1 <- predict(lm1, newdata=test1)
+# calculate the mse on the test results
+mse1 <- mean((test1$points - pred1) ^ 2)
+cat("\nMSE: ", mse1)
+```
+
+When running the linear regression model on the test data, we have a MSE of 10. When 1 point makes a significant difference, an MSE of 10 indicates a fairly significant mean error for this model.
+
+```{r}
+plot(test1$price, test1$points,
+     main="Price vs. Review Score",
+     xlab="Price",
+     ylab="Score")
+# draw blue abline on plot
+abline(lm1, col="blue")
+```
+
+This is a graph of the linear model over a plot of the test data.
+
+Clearly the linear model has some inaccuaracies, especially for scores at the lower and higher ends of the spectrum.
+
+#####KNN Regression with k=1
+
+```{r}
+library(class)
+pred2 <- knn(train=matrix(train1$price, ncol=1), test=matrix(test1$price,ncol=1), cl=train1$points, k=1)
+pred2 <- as.numeric(as.character(pred2))
+# calculate the mse on the test results
+mse2 <- mean((test1$points - pred2) ^ 2)
+cat("\nMSE: ", mse2)
+```
+
+After experimenting with many different k values, 1 appeared to produce the most accurate results. The KNN algorithm output its predictions as a list of factor variables, which had to be converted to numbers first before the MSE could be computed.
+
+Using price as the sole predictor with KNN, the MSE has lowered to 6.3574, which is certainly still a significant MSE value, but much smaller compared to the linear model's MSE.
+
+#####Decision Tree
+
+We will now use a decision tree that uses price, country, and province as predictors for a wine's score. However, a decision tree requires factors to have at most 32 levels, so only the 31 most popular factors will be used, with the rest being reclassified as 'other'.
+
+```{r}
+countries <- table(wines$country)
+countries <- sort(countries, decreasing = TRUE)
+countries <- names(countries[1:32]) # take top 32, because one of the most frequent factors is empty string
+wines$country <- ifelse(match(wines$country, countries) & as.character(wines$country) != "", as.character(wines$country), "other")
+wines$country <- as.factor(wines$country)
+
+provs <- table(wines$province)
+provs <- sort(provs, decreasing = TRUE)
+provs <- names(provs[1:31]) # take top 31
+wines$province <- ifelse(match(wines$province, provs) & as.character(wines$province) != "", as.character(wines$province), "other")
+wines$province <- as.factor(wines$province)
+
+str(wines)
+```
+
+Now we are ready to use our dataset with a decision tree.
+
+```{r}
+library(tree)
+
+# split our refined dataset into the same train and test sets
+set.seed(1111)
+i <- sample(1:nrow(wines), nrow(wines)*0.8, replace=FALSE)
+train1 <- wines[i, ]
+test1 <- wines[-i, ]
+
+tree1 = tree(points~price+country+province, train1)
+
+summary(tree1)
+```
+
+```{r}
+plot(tree1)
+text(tree1, cex=0.5, pretty=0)
+```
+
+It turns out that price is a much better predictor than a wine's origin after all, as the decision tree used it at every decision point.
+
+```{r}
+pred3 <- predict(tree1, test1, type="vector")
+# calculate the mse on the test results
+mse3 <- mean((test1$points - pred3) ^ 2)
+cat("\nMSE: ", mse3)
+
+cat("\n\nMean error 1: ", sqrt(mse1))
+cat("\n\nMean error 2: ", sqrt(mse2))
+cat("\n\nMean error 3: ", sqrt(mse3))
+```
+
+Oddly enough, even though the decision tree did not use the country or province columns as predictors, it still had much improved performance compared to the linear regression model and slightly improved accuracy compared to the KNN model, as its MSE was 5.598.
+
+After running all the models on the test set, the mean errors for each models are:
+
+Linear regression model: 3.174147
+KNN model: 2.521389
+Decision tree model: 2.366083
+
+The decision tree model appears to be the most useful model of the three, because it is more accurate and has a lower MSE, and also because the model is more readable and easier to understand at a glance than the other two.
+
+From this data experiment, I learned that, regarding Chardonnay (and wine in general), you get what you pay for. While there are certainly outliers and exceptions to rule, in general, a high price is a good indicator of a quality wine.
+
+I also learned that it's best to try a wide variety of predictors with your models, even if you don't think they're related to your target variable, because you can't ever be sure what will be a good predictor until you try it for yourself. However, in this case, price was indeed the best predictor, hands down.
+
+##Classification Algorithms
+
+###Dataset 2: Movies
+
+Who doesn't like movies?! We'll be taking a look at metadata from over 45,000 movies, using the columns such as review counts and review scores as predictors to determine whether or not a movie made a profit. Link to the data: https://www.kaggle.com/rounakbanik/the-movies-dataset
+
+####Data Exploration
+
+```{r}
+movies <- read.csv("movies.csv")
+```
+
+```{r}
+movies <- subset(movies, select=-c(adult))
+movies <- subset(movies, select=-c(belongs_to_collection))
+movies <- subset(movies, select=-c(homepage))
+movies <- subset(movies, select=-c(original_title))
+movies <- subset(movies, select=-c(overview))
+movies <- subset(movies, select=-c(poster_path))
+movies <- subset(movies, select=-c(id))
+movies <- subset(movies, select=-c(imdb_id))
+movies <- subset(movies, select=-c(original_language))
+movies <- na.omit(movies)
+```
+
+Some of the less useful columns were removed.
+
+```{r}
+names(movies)
+```
+
+```{r}
+str(movies)
+```
+
+It appears that our budget column has some non-numeric entries, so those will have to be cleaned up. The same goes for the popularity column.
+
+```{r}
+movies$budget <- as.numeric(as.character(movies$budget))
+movies$popularity <- as.numeric(as.character(movies$popularity))
+```
+
+In order to determine if a movie was profitable, we will simply calculate if the revenue is greater than the budget and then mark the row accordingly.
+
+```{r}
+movies$profitable <- ifelse(movies$revenue > movies$budget, "True", "False")
+movies$profitable <- as.factor(movies$profitable)
+str(movies)
+```
+
+Note that after cleaning, this dataset has 45,463 observations.
+
+```{r}
+head(movies)
+```
+
+```{r}
+summary(movies)
+```
+
+Many more movies were unprofitable than profitable, which does skew the data a bit. Guessing "False" for every movie would attain 87.2% accuracy, so this is our baseline. Also note that popularity grows at an exponential rate, with the mean being ~2.9, the 3rd Quartile being ~3.7, and the max being ~547.
+
+####Machine Learning Algorithms
+
+```{r}
+set.seed(1111)
+i <- sample(1:nrow(movies), nrow(movies)*0.8, replace=FALSE)
+train2 <- movies[i, ]
+test2 <- movies[-i, ]
+```
+
+The data must first be split into train and test sets. I am using an 80:20 split.
+
+Popularity would indicate that a movie is profitable. A high vote count would also indicate a popular movie. Hence, I will use both popularity and vote count as predictors for profitability. Quality movies are also thought to be more profitable than poorly made movies, so vote average would also appear to be a good predictor of a movie's profitability.
+
+#####Logistic Regression
+
+```{r}
+glm1 <- glm(profitable~popularity+vote_count+vote_average, data=train2, family="binomial")
+summary(glm1)
+```
+
+The message "fitted probabilities numberically 0 or 1 occurred" indicates that there is a high amount of bias.
+
+```{r}
+probs4 <- predict(glm1, newdata=test2, type="response")
+pred4 <- ifelse(probs4>=0.5, "True", "False")
+
+table(pred4, test2$profitable)
+
+cat("\nMean accuracy is:", mean(pred4 == test2$profitable))
+```
+
+90.73% accuracy doesn't appear to be a bad metric at all, but considering that a model guessing "false" all the time attains 87.2% accuracy, it isn't that impressive.
+
+#####Decision Tree
+
+We will now use a decision tree that uses vote_count and vote_average as predictors for a movie's profitability.
+
+```{r}
+# library(tree)
+
+tree2 = tree(profitable~popularity+vote_count+vote_average, train2)
+
+summary(tree2)
+```
+
+```{r}
+plot(tree2)
+text(tree2, cex=0.5, pretty=0)
+```
+
+It turns out that popularity and vote_count are better predictors than a vote_average, as the decision tree used those two predictors at every decision point.
+
+```{r}
+pred5 <- predict(tree2, test2, type="class")
+
+table(pred5, test2$profitable)
+
+cat("\nMean accuracy is:", mean(pred5 == test2$profitable))
+```
+
+This slightly underperformed the logistic regression, with a mean accuracy of ~90.5%.
+
+#####Naive Bayes
+
+```{r}
+library(e1071)
+nb1 <- naiveBayes(profitable~popularity+vote_count+vote_average, data=train2)
+nb1
+```
+
+```{r}
+pred6 <- predict(nb1, newdata=test2, type="class")
+table(pred6, test2$profitable)
+
+cat("\nMean accuracy is:", mean(pred6 == test2$profitable))
+```
+
+Again, an accuracy of ~90.5% is achieved. This slightly underperforms the logistic model.
+
+All three models attain a high level of accuracy, but with a baseline accuracy of 87.2%, this isn't incredibly impressive. Each of the three models seemed to err on the side of guessing false, as the logistic regression model guessed false incorrectly ~5.5 times more than it incorrectly guessed true, the decision tree guessed false incorrectly ~12 times more than it incorrectly guessed true, and the Naive Bayes model guessed false incorrectly ~2.5 times more than it incorrectly guessed true.
+
+Seeing as the logistic model had the highest mean accuracy after testing, I would say that it is the most useful model for predicting a movie's profitability. Each of these models have a substantial amount of bias, however.
+
+From this experiment, I learned that it's important to consider how skewed your dataset is before you begin working with it, in order to temper your expectations correctly.

@@ -1,0 +1,184 @@
+---
+title: 'Homework 2: Linear Regression'
+output: html_notebook
+---
+####Casey Erbes
+
+##Problem 1
+###1
+
+```{r}
+# setup in console:
+# install.packages('ISLR')
+library(ISLR)
+names(Auto)
+summary(Auto)
+set.seed(1234)
+sampleInt <- sample.int(n = nrow(Auto), size = floor(.75*nrow(Auto)))
+train <- Auto[sampleInt, ]
+test  <- Auto[-sampleInt, ]
+```
+
+###2
+
+```{r}
+fit <- lm(mpg~horsepower, data=train)
+summ <- summary(fit)
+summ
+mse <- mean(summ$residuals^2)
+cat("MSE = ", mse)
+```
+
+###3
+
+a. y = 39.2374 + -0.15286x + ϵ, where y is mpg, x is horsepower, and ϵ is the error of the model.
+
+b. There is a fairly strong relationship between horsepower and mpg, and in general, a car with significantly (in the hundreds) less horsepower than another car will most likely have the better gas mileage.
+
+c. It is a negative correlation.
+
+d. Our RSE is 4.993, which means that R estimates the standard deviation of each sample from our linear formula to be 4.993. This is a fairly significant number in terms of mpg.
+Our R^2 is 0.5914. R^2 can vary from 0 to 1, where 1 means that the model explains all of the sample variation from the mean, and 0 means that the model explains none of the sample variation from the mean. Our R^2 value indicates that our model reasonably explains some of the sample's variation from the mean, but not all of it.
+Our F-statistic is 422.6, which is fairly high, and, coupled with the low p-value, it suggests that there is a significant relationship between mpg and horsepower, and a null hypothesis should be rejected.
+
+e. Our MSE is 24.76. The closer the mean squared error is to 0, the better the model fits the data. Our MSE is fairly close to 0, which indicates that horsepower is a fairly accurate predictor of mpg.
+
+###4
+
+```{r}
+# plot rm vs medv
+plot(train$horsepower, train$mpg,
+     main="Horsepower vs. MPG",
+     xlab="Horsepower",
+     ylab="MPG")
+# draw blue abline on plot
+abline(fit, col="blue")
+# predict mpg for horsepower of 98
+predict(fit, data.frame(horsepower=98))
+```
+
+The samples surround the line well enough, but there are a large amount of samples, especially at the lower and higher values of horsepower, that lie considerably far from the line.
+
+The predicted value appears to lie upon the line in the graph, but there are many instances of vehicles of a horsepower similar to 98 which have wildly varying MPGs, so this prediction is not necessarily accurate for every vehicle with a horsepower of 98.
+
+###5
+
+```{r}
+# test on the test data using the predict function
+predict(fit, newdata=test)
+# correlation between predicted and actual values
+cor(predict(fit, newdata=test), test$mpg)
+# calculate the mse on the test results
+pMse <- mean((test$mpg - predict(fit, newdata=test)) ^ 2)
+cat("\nMSE = ", pMse)
+```
+
+The predicted values and the mpg values of the test data set are positively correlated to a strong degree, so this supports the validity of the model formed with the train dataset. The MSE value is 21.7656, which is lower than the MSE for the train data set, implying that the linear model better fits the test data than the train data.
+
+###6
+
+```{r}
+# plot linear model in 2x2 Arrangement
+par(mfrow=c(2,2)) # Change the panel layout to 2 x 2
+plot(fit)
+```
+
+The residuals plot forms a parabola, which indicates a non-linear relationship between horsepower and mpg.
+
+###7
+
+```{r}
+logFit <- lm(log(mpg)~horsepower, data=train)
+summary(logFit)
+```
+
+The R^2 value is 0.6768, which is closer to 1 than in our original model with the train dataset, which means that the model with log(mpg) explains more of the sample variation than our original model.
+
+###8
+
+```{r}
+plot(train$horsepower, log(train$mpg),
+     main="Horsepower vs. log(MPG)",
+     xlab="Horsepower",
+     ylab="log(MPG)")
+# draw blue abline on plot
+abline(logFit, col="blue")
+```
+
+The line fits the data much more closely than in step 4, though there still are samples that deviate greatly from the line at higher horsepower values.
+
+###9
+
+```{r}
+# test on the test data using the predict function
+predict(logFit, newdata=test)
+# correlation between predicted and actual values
+cor(predict(logFit, newdata=test), log(test$mpg))
+# calculate the mse on the test results
+pMse2 <- mean((log(test$mpg) - predict(logFit, newdata=test)) ^ 2)
+cat("\nMSE = ", pMse2)
+```
+
+The predicted values and the log(mpg) values of the test data set are positively correlated to a strong degree, so this supports the validity of the model formed with the train dataset. The MSE value is 0.033, which is quite low, though logarithmic functions do not vary to a high degree, so while the low MSE indicates that the model has a low measure of error, it is more significant than it appears because the set of log(mpg) values has a range from about 2 - 4.
+
+###10
+
+```{r}
+# plot model in 2x2 Arrangement
+par(mfrow=c(2,2)) # Change the panel layout to 2 x 2
+plot(logFit)
+```
+
+The plots still suggest that the relationship between horsepower and log(mpg) isn't exactly linear, though the lines seem to fit the data to a higher degree than the first set of plots seen in step 6.
+
+##Problem 2
+###1
+
+```{r}
+pairs(Auto)
+```
+
+3 positive correlations are: displacement to horsepower, horsepower to weight, and displacement to weight.
+3 negative correlations are: displacement to acceleration, horsepower to acceleration, and onweight to acceleration.
+
+###2
+
+```{r}
+cor(Auto[,1:8])
+```
+
+Two strongest positive correlations (excluding 1): displacement to cylinders (0.9508) and displacement to weight (0.93299)
+
+Two strongest negative correlations:  mpg to weight (-0.832) and mpg to displacement (-0.8051)
+
+###3
+
+```{r}
+Auto$origin <- as.factor(Auto$origin)
+mFit <- lm(mpg~.-name, data=Auto)
+summary(mFit)
+```
+
+Displacement, weight, year, origin2, and origin3 seem to have the most significant relationship to mpg.
+
+###4
+
+```{r}
+plot(mFit)
+Auto[327,]
+```
+
+Yes, there appear to be some leverage points indicated on the graph. One is at row 327.
+
+###5
+
+```{r}
+betterFit <- lm(mpg~ cylinders*displacement*horsepower*weight*acceleration+year+origin, data=Auto)
+summary(betterFit)
+
+anova(mFit)
+
+anova(betterFit)
+```
+
+The R^2 value of my new linear model is closer to 1 than the model from step 2, meaning that it better explains variation from the mean. Running anova on each of the models shows that the new linear model has a smaller measure of error, meaning its line more closely models the dataset.
